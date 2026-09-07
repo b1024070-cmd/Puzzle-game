@@ -18,6 +18,24 @@ public class PuzzleBoard
         blockPositions = new HashSet<Vector2Int>();
     }
 
+    public PuzzleBoard(StageData data)
+    {
+        Width = data.width;
+        Height = data.height;
+        tiles = new TileType[Width, Height];
+
+        for (int y = 0; y < Height; y++)
+        {
+            for (int x = 0; x < Width; x++)
+            {
+                tiles[x, y] = data.GetTile(x, y);
+            }
+        }
+
+        blockPositions = new HashSet<Vector2Int>(data.blockStarts);
+        playerPosition = data.playerStart;
+    }
+
     public bool TryMove(Vector2Int direction)
     {
         Vector2Int nextPos = playerPosition + direction;
@@ -56,4 +74,3 @@ public class PuzzleBoard
     private bool IsInside(Vector2Int pos)
         => pos.x >= 0 && pos.x < Width && pos.y >= 0 && pos.y < Height;
 }
-
