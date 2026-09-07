@@ -17,7 +17,7 @@ public class StageManager : MonoBehaviour
     private bool cleared;
     private bool failed;
     private float remainingTime;
-    private float elapsedTime; // クリアタイム計測用
+    private float elapsedTime;
 
     void Start()
     {
@@ -63,6 +63,8 @@ public class StageManager : MonoBehaviour
         if (cleared || failed) return;
 
         view.UpdateVisuals(board);
+        CheckChestOpen();
+        CheckWallBroken();
 
         if (board.IsCleared())
         {
@@ -71,23 +73,62 @@ public class StageManager : MonoBehaviour
         }
     }
 
-    private void ShowResult(bool isCleared)
-{
-    resultPanel.SetActive(true);
+    private void CheckChestOpen()
+    {
+        if (board.TryOpenChest(board.PlayerPosition))
+        {
+            view.RemoveChestVisual(board.PlayerPosition);
 
-    if (isCleared)
-    {
-        resultText.text = $"CLEAR!\nTime: {elapsedTime:F2}s";
+            ItemEffectType effect = ItemEffectPicker.PickGoodEffect();
+            ApplyEffect(effect);
+        }
     }
-    else
+
+    private void CheckWallBroken()
     {
-        resultText.text = "Time's up...";
+        Vector2Int? broken = board.ConsumeLastWallBroken();
+        if (broken.HasValue)
+        {
+            view.BreakWallVisual(broken.Value);
+            Debug.Log("壁を破壊しました: " + broken.Value);
+        }
     }
-}
+
+    private void ApplyEffect(ItemEffectType effect)
+    {
+        switch (effect)
+        {
+            case ItemEffectType.WallBreak:
+                board.ActivateWallBreak();
+                Debug.Log("効果: 壁破壊モード発動 - 次に壁へ向かうと壊せます");
+                break;
+            case ItemEffectType.TimeExtend:
+                remainingTime += 15f;
+                Debug.Log("効果: 時間延長 +15秒");
+                break;
+            case ItemEffectType.SpeedUp:
+                view.PlayerController.ApplySpeedBoost(2f, 5f);
+                Debug.Log("効果: スピードアップ(2倍速・5秒間)");
+                break;
+        }
+    }
+
+    private void ShowResult(bool isCleared)
+    {
+        resultPanel.SetActive(true);
+
+        if (isCleared)
+        {
+            resultText.text = $"CLEAR!\nTime: {elapsedTime:F2}s";
+        }
+        else
+        {
+            resultText.text = "Time's up...";
+        }
+    }
 
     private void RetryStage()
     {
-        // 前回生成したタイル・プレイヤー・ブロックを全部消してから作り直す
         foreach (Transform child in view.transform)
         {
             Destroy(child.gameObject);

@@ -14,22 +14,24 @@ public class PuzzleView : MonoBehaviour
     [Header("キャラクター用Prefab")]
     [SerializeField] private GameObject playerPrefab;
     [SerializeField] private GameObject blockPrefab;
+    [SerializeField] private GameObject chestPrefab;
 
     private GameObject playerObject;
     private List<GameObject> blockObjects = new List<GameObject>();
+    private Dictionary<Vector2Int, GameObject> chestObjects = new Dictionary<Vector2Int, GameObject>();
+    private Dictionary<Vector2Int, GameObject> tileObjects = new Dictionary<Vector2Int, GameObject>();
 
     public StageData StageData => stageData;
     public PlayerController PlayerController { get; private set; }
 
-    // StageManagerから呼び出す、盤面の初期描画
     public void Initialize()
     {
         DrawTiles();
         SpawnPlayer();
         SpawnBlocks();
+        SpawnChests();
     }
 
-    // StageManagerから毎フレーム呼び出す、見た目の位置更新
     public void UpdateVisuals(PuzzleBoard board)
     {
         playerObject.transform.position = GridToWorld(board.PlayerPosition);
@@ -50,8 +52,10 @@ public class PuzzleView : MonoBehaviour
                 TileType tile = stageData.GetTile(x, y);
                 GameObject prefab = GetPrefabForTile(tile);
 
+                Vector2Int gridPos = new Vector2Int(x, y);
                 Vector3 pos = new Vector3(x, -y, 0);
-                Instantiate(prefab, pos, Quaternion.identity, transform);
+                GameObject tileObj = Instantiate(prefab, pos, Quaternion.identity, transform);
+                tileObjects[gridPos] = tileObj;
             }
         }
     }
@@ -81,6 +85,38 @@ public class PuzzleView : MonoBehaviour
             GameObject block = Instantiate(blockPrefab, pos, Quaternion.identity, transform);
             blockObjects.Add(block);
         }
+    }
+
+    private void SpawnChests()
+    {
+        foreach (var chestPos in stageData.chestPositions)
+        {
+            Vector3 pos = GridToWorld(chestPos);
+            GameObject chest = Instantiate(chestPrefab, pos, Quaternion.identity, transform);
+            chestObjects[chestPos] = chest;
+        }
+    }
+
+    public void RemoveChestVisual(Vector2Int chestPos)
+    {
+        if (chestObjects.TryGetValue(chestPos, out GameObject chest))
+        {
+            Destroy(chest);
+            chestObjects.Remove(chestPos);
+        }
+    }
+
+    // 壁が壊れた時、見た目を壁 → 床に差し替える
+    public void BreakWallVisual(Vector2Int pos)
+    {
+        if (tileObjects.TryGetValue(pos, out GameObject oldTile))
+        {
+            Destroy(oldTile);
+        }
+
+        Vector3 worldPos = new Vector3(pos.x, -pos.y, 0);
+        GameObject newFloor = Instantiate(floorPrefab, worldPos, Quaternion.identity, transform);
+        tileObjects[pos] = newFloor;
     }
 
     private Vector3 GridToWorld(Vector2Int gridPos)
