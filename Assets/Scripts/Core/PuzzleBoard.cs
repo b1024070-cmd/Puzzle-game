@@ -73,4 +73,7 @@ public class PuzzleBoard
 
     private bool IsInside(Vector2Int pos)
         => pos.x >= 0 && pos.x < Width && pos.y >= 0 && pos.y < Height;
+
+            public Vector2Int PlayerPosition => playerPosition;
+    public IReadOnlyCollection<Vector2Int> BlockPositions => blockPositions;
 }
