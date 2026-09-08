@@ -3,9 +3,6 @@ using UnityEngine;
 
 public class PuzzleView : MonoBehaviour
 {
-    [Header("ステージデータ")]
-    [SerializeField] private StageData stageData;
-
     [Header("タイル用Prefab")]
     [SerializeField] private GameObject floorPrefab;
     [SerializeField] private GameObject wallPrefab;
@@ -21,15 +18,31 @@ public class PuzzleView : MonoBehaviour
     private Dictionary<Vector2Int, GameObject> chestObjects = new Dictionary<Vector2Int, GameObject>();
     private Dictionary<Vector2Int, GameObject> tileObjects = new Dictionary<Vector2Int, GameObject>();
 
-    public StageData StageData => stageData;
+    public StageData StageData { get; private set; }
     public PlayerController PlayerController { get; private set; }
 
-    public void Initialize()
+    // どのステージを表示するかを外部(StageManager)から指定して初期化する
+    public void Initialize(StageData stageData)
     {
+        StageData = stageData;
+
         DrawTiles();
         SpawnPlayer();
         SpawnBlocks();
         SpawnChests();
+    }
+
+    // すでに生成済みのオブジェクトを全部消す(リトライ・ステージ切り替え時に使う)
+    public void ClearBoard()
+    {
+        foreach (Transform child in transform)
+        {
+            Destroy(child.gameObject);
+        }
+
+        blockObjects.Clear();
+        chestObjects.Clear();
+        tileObjects.Clear();
     }
 
     public void UpdateVisuals(PuzzleBoard board)
@@ -45,11 +58,11 @@ public class PuzzleView : MonoBehaviour
 
     private void DrawTiles()
     {
-        for (int y = 0; y < stageData.height; y++)
+        for (int y = 0; y < StageData.height; y++)
         {
-            for (int x = 0; x < stageData.width; x++)
+            for (int x = 0; x < StageData.width; x++)
             {
-                TileType tile = stageData.GetTile(x, y);
+                TileType tile = StageData.GetTile(x, y);
                 GameObject prefab = GetPrefabForTile(tile);
 
                 Vector2Int gridPos = new Vector2Int(x, y);
@@ -72,14 +85,14 @@ public class PuzzleView : MonoBehaviour
 
     private void SpawnPlayer()
     {
-        Vector3 pos = GridToWorld(stageData.playerStart);
+        Vector3 pos = GridToWorld(StageData.playerStart);
         playerObject = Instantiate(playerPrefab, pos, Quaternion.identity, transform);
         PlayerController = playerObject.GetComponent<PlayerController>();
     }
 
     private void SpawnBlocks()
     {
-        foreach (var blockStart in stageData.blockStarts)
+        foreach (var blockStart in StageData.blockStarts)
         {
             Vector3 pos = GridToWorld(blockStart);
             GameObject block = Instantiate(blockPrefab, pos, Quaternion.identity, transform);
@@ -89,7 +102,7 @@ public class PuzzleView : MonoBehaviour
 
     private void SpawnChests()
     {
-        foreach (var chestPos in stageData.chestPositions)
+        foreach (var chestPos in StageData.chestPositions)
         {
             Vector3 pos = GridToWorld(chestPos);
             GameObject chest = Instantiate(chestPrefab, pos, Quaternion.identity, transform);
@@ -111,7 +124,6 @@ public class PuzzleView : MonoBehaviour
         ReplaceTileVisual(pos, floorPrefab);
     }
 
-    // 壁が追加された時、見た目を床 → 壁に差し替える
     public void AddWallVisual(Vector2Int pos)
     {
         ReplaceTileVisual(pos, wallPrefab);

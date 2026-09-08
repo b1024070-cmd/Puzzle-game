@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -12,17 +13,43 @@ public class StageManager : MonoBehaviour
     [SerializeField] private GameObject resultPanel;
     [SerializeField] private TextMeshProUGUI resultText;
     [SerializeField] private Button retryButton;
+    [SerializeField] private Button backToSelectButton;
 
     private PuzzleBoard board;
+    private StageData currentStageData;
+    private int currentStageNumber;
     private bool cleared;
     private bool failed;
     private float remainingTime;
     private float elapsedTime;
+    private bool isRunning;
 
-    void Start()
+    // クリアした時に呼ばれる(GameFlowManagerが進捗を更新するために使う)
+    public event Action<int> OnStageCleared;
+
+    // 選択画面に戻る操作をされた時に呼ばれる
+    public event Action OnBackToSelect;
+
+    void Awake()
     {
         retryButton.onClick.AddListener(RetryStage);
+        backToSelectButton.onClick.AddListener(() => OnBackToSelect?.Invoke());
+    }
+
+    // GameFlowManagerから呼び出す、ステージ開始のエントリーポイント
+    public void BeginStage(StageData stageData, int stageNumber)
+    {
+        currentStageData = stageData;
+        currentStageNumber = stageNumber;
+        isRunning = true;
+
         StartStage();
+    }
+
+    public void StopStage()
+    {
+        isRunning = false;
+        view.ClearBoard();
     }
 
     private void StartStage()
@@ -30,12 +57,14 @@ public class StageManager : MonoBehaviour
         cleared = false;
         failed = false;
         elapsedTime = 0f;
-        remainingTime = view.StageData.timeLimit;
+        remainingTime = currentStageData.timeLimit;
 
         resultPanel.SetActive(false);
 
-        board = new PuzzleBoard(view.StageData);
-        view.Initialize();
+        view.ClearBoard();
+        view.Initialize(currentStageData);
+
+        board = new PuzzleBoard(currentStageData);
         view.PlayerController.Initialize(board);
 
         UpdateTimerDisplay();
@@ -43,7 +72,7 @@ public class StageManager : MonoBehaviour
 
     void Update()
     {
-        if (cleared || failed) return;
+        if (!isRunning || cleared || failed) return;
 
         elapsedTime += Time.deltaTime;
         remainingTime -= Time.deltaTime;
@@ -60,7 +89,7 @@ public class StageManager : MonoBehaviour
 
     void LateUpdate()
     {
-        if (cleared || failed) return;
+        if (!isRunning || cleared || failed) return;
 
         view.UpdateVisuals(board);
         CheckChestOpen();
@@ -69,6 +98,8 @@ public class StageManager : MonoBehaviour
         if (board.IsCleared())
         {
             cleared = true;
+            StageProgress.MarkCleared(currentStageNumber);
+            OnStageCleared?.Invoke(currentStageNumber);
             ShowResult(true);
         }
     }
@@ -90,7 +121,6 @@ public class StageManager : MonoBehaviour
         if (broken.HasValue)
         {
             view.BreakWallVisual(broken.Value);
-            Debug.Log("壁を破壊しました: " + broken.Value);
         }
     }
 
@@ -100,22 +130,18 @@ public class StageManager : MonoBehaviour
         {
             case ItemEffectType.WallBreak:
                 board.ActivateWallBreak();
-                Debug.Log("効果: 壁破壊モード発動");
                 break;
 
             case ItemEffectType.TimeExtend:
                 remainingTime += 15f;
-                Debug.Log("効果: 時間延長 +15秒");
                 break;
 
             case ItemEffectType.SpeedUp:
                 view.PlayerController.ApplySpeedEffect(2f, 5f);
-                Debug.Log("効果: スピードアップ(2倍速・5秒間)");
                 break;
 
             case ItemEffectType.SpeedDown:
                 view.PlayerController.ApplySpeedEffect(0.5f, 5f);
-                Debug.Log("効果: スピードダウン(0.5倍速・5秒間)");
                 break;
 
             case ItemEffectType.AddWall:
@@ -125,7 +151,6 @@ public class StageManager : MonoBehaviour
                 {
                     view.AddWallVisual(added.Value);
                 }
-                Debug.Log("効果: 壁が追加されました");
                 break;
         }
     }
@@ -134,23 +159,13 @@ public class StageManager : MonoBehaviour
     {
         resultPanel.SetActive(true);
 
-        if (isCleared)
-        {
-            resultText.text = $"CLEAR!\nTime: {elapsedTime:F2}s";
-        }
-        else
-        {
-            resultText.text = "Time's up...";
-        }
+        resultText.text = isCleared
+            ? $"CLEAR!\nTime: {elapsedTime:F2}s"
+            : "Time's up...";
     }
 
     private void RetryStage()
     {
-        foreach (Transform child in view.transform)
-        {
-            Destroy(child.gameObject);
-        }
-
         StartStage();
     }
 
