@@ -13,20 +13,30 @@ public class GameFlowManager : MonoBehaviour
     [SerializeField] private GameObject stageSelectPanel;
     [SerializeField] private GameObject gameplayPanel;
 
+    private int currentStageNumber;
+
     void Start()
     {
         stageManager.OnBackToSelect += HandleBackToSelect;
+        stageManager.OnRequestNextStage += HandleNextStage;
         ShowStageSelect();
     }
 
-    // ステージ選択画面のボタンから呼ばれる
     public void StartStage(int stageNumber)
     {
+        currentStageNumber = stageNumber;
+
         stageSelectPanel.SetActive(false);
         gameplayPanel.SetActive(true);
 
         StageData data = stageDataList[stageNumber - 1];
-        stageManager.BeginStage(data, stageNumber);
+        bool isLastStage = stageNumber >= stageDataList.Length;
+        stageManager.BeginStage(data, stageNumber, isLastStage);
+    }
+
+    private void HandleNextStage()
+    {
+        StartStage(currentStageNumber + 1);
     }
 
     private void HandleBackToSelect()

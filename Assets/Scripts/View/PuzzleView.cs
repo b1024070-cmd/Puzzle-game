@@ -21,7 +21,6 @@ public class PuzzleView : MonoBehaviour
     public StageData StageData { get; private set; }
     public PlayerController PlayerController { get; private set; }
 
-    // どのステージを表示するかを外部(StageManager)から指定して初期化する
     public void Initialize(StageData stageData)
     {
         StageData = stageData;
@@ -32,7 +31,6 @@ public class PuzzleView : MonoBehaviour
         SpawnChests();
     }
 
-    // すでに生成済みのオブジェクトを全部消す(リトライ・ステージ切り替え時に使う)
     public void ClearBoard()
     {
         foreach (Transform child in transform)
@@ -47,12 +45,12 @@ public class PuzzleView : MonoBehaviour
 
     public void UpdateVisuals(PuzzleBoard board)
     {
-        playerObject.transform.position = GridToWorld(board.PlayerPosition);
+        playerObject.transform.position = GridToWorld(board.PlayerPosition, -1);
 
         var positions = new List<Vector2Int>(board.BlockPositions);
         for (int i = 0; i < blockObjects.Count && i < positions.Count; i++)
         {
-            blockObjects[i].transform.position = GridToWorld(positions[i]);
+            blockObjects[i].transform.position = GridToWorld(positions[i], -1);
         }
     }
 
@@ -66,7 +64,7 @@ public class PuzzleView : MonoBehaviour
                 GameObject prefab = GetPrefabForTile(tile);
 
                 Vector2Int gridPos = new Vector2Int(x, y);
-                Vector3 pos = new Vector3(x, -y, 0);
+                Vector3 pos = GridToWorld(gridPos, 0);
                 GameObject tileObj = Instantiate(prefab, pos, Quaternion.identity, transform);
                 tileObjects[gridPos] = tileObj;
             }
@@ -85,7 +83,7 @@ public class PuzzleView : MonoBehaviour
 
     private void SpawnPlayer()
     {
-        Vector3 pos = GridToWorld(StageData.playerStart);
+        Vector3 pos = GridToWorld(StageData.playerStart, -1);
         playerObject = Instantiate(playerPrefab, pos, Quaternion.identity, transform);
         PlayerController = playerObject.GetComponent<PlayerController>();
     }
@@ -94,7 +92,7 @@ public class PuzzleView : MonoBehaviour
     {
         foreach (var blockStart in StageData.blockStarts)
         {
-            Vector3 pos = GridToWorld(blockStart);
+            Vector3 pos = GridToWorld(blockStart, -1);
             GameObject block = Instantiate(blockPrefab, pos, Quaternion.identity, transform);
             blockObjects.Add(block);
         }
@@ -104,7 +102,7 @@ public class PuzzleView : MonoBehaviour
     {
         foreach (var chestPos in StageData.chestPositions)
         {
-            Vector3 pos = GridToWorld(chestPos);
+            Vector3 pos = GridToWorld(chestPos, -1);
             GameObject chest = Instantiate(chestPrefab, pos, Quaternion.identity, transform);
             chestObjects[chestPos] = chest;
         }
@@ -136,13 +134,21 @@ public class PuzzleView : MonoBehaviour
             Destroy(oldTile);
         }
 
-        Vector3 worldPos = new Vector3(pos.x, -pos.y, 0);
+        Vector3 worldPos = GridToWorld(pos, 0);
         GameObject newTile = Instantiate(newPrefab, worldPos, Quaternion.identity, transform);
         tileObjects[pos] = newTile;
     }
 
-    private Vector3 GridToWorld(Vector2Int gridPos)
+    // グリッド座標をワールド座標に変換する。盤面の中心が原点(0,0)に来るよう、
+    // ステージの幅・高さに応じたオフセットを差し引いている。
+    private Vector3 GridToWorld(Vector2Int gridPos, float z)
     {
-        return new Vector3(gridPos.x, -gridPos.y, -1);
+        float offsetX = (StageData.width - 1) / 2f;
+        float offsetY = (StageData.height - 1) / 2f;
+
+        float worldX = gridPos.x - offsetX;
+        float worldY = -gridPos.y + offsetY;
+
+        return new Vector3(worldX, worldY, z);
     }
 }

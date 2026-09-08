@@ -14,33 +14,52 @@ public class StageManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI resultText;
     [SerializeField] private Button retryButton;
     [SerializeField] private Button backToSelectButton;
+    [SerializeField] private Button nextStageButton;
+
+    [Header("ポーズ")]
+    [SerializeField] private Button pauseButton;
+    [SerializeField] private GameObject pausePanel;
+    [SerializeField] private Button resumeButton;
+    [SerializeField] private Button pauseRetryButton;
+    [SerializeField] private Button pauseBackToSelectButton;
+
+    [Header("アイテム効果メッセージ")]
+    [SerializeField] private TextMeshProUGUI effectMessageText;
+    [SerializeField] private float effectMessageDuration = 2f;
 
     private PuzzleBoard board;
     private StageData currentStageData;
     private int currentStageNumber;
+    private bool isLastStage;
     private bool cleared;
     private bool failed;
+    private bool isPaused;
+    private bool isRunning;
     private float remainingTime;
     private float elapsedTime;
-    private bool isRunning;
+    private float effectMessageTimer;
 
-    // クリアした時に呼ばれる(GameFlowManagerが進捗を更新するために使う)
     public event Action<int> OnStageCleared;
-
-    // 選択画面に戻る操作をされた時に呼ばれる
     public event Action OnBackToSelect;
+    public event Action OnRequestNextStage;
 
     void Awake()
     {
         retryButton.onClick.AddListener(RetryStage);
-        backToSelectButton.onClick.AddListener(() => OnBackToSelect?.Invoke());
+        backToSelectButton.onClick.AddListener(RequestBackToSelect);
+        nextStageButton.onClick.AddListener(() => OnRequestNextStage?.Invoke());
+
+        pauseButton.onClick.AddListener(PauseStage);
+        resumeButton.onClick.AddListener(ResumeStage);
+        pauseRetryButton.onClick.AddListener(RetryStage);
+        pauseBackToSelectButton.onClick.AddListener(RequestBackToSelect);
     }
 
-    // GameFlowManagerから呼び出す、ステージ開始のエントリーポイント
-    public void BeginStage(StageData stageData, int stageNumber)
+    public void BeginStage(StageData stageData, int stageNumber, bool isLastStage)
     {
         currentStageData = stageData;
         currentStageNumber = stageNumber;
+        this.isLastStage = isLastStage;
         isRunning = true;
 
         StartStage();
@@ -49,6 +68,8 @@ public class StageManager : MonoBehaviour
     public void StopStage()
     {
         isRunning = false;
+        isPaused = false;
+        pausePanel.SetActive(false);
         view.ClearBoard();
     }
 
@@ -56,10 +77,15 @@ public class StageManager : MonoBehaviour
     {
         cleared = false;
         failed = false;
+        isPaused = false;
         elapsedTime = 0f;
         remainingTime = currentStageData.timeLimit;
+        effectMessageTimer = 0f;
 
         resultPanel.SetActive(false);
+        pausePanel.SetActive(false);
+        effectMessageText.gameObject.SetActive(false);
+        pauseButton.gameObject.SetActive(true); // ステージ開始時にPauseボタンを再表示
 
         view.ClearBoard();
         view.Initialize(currentStageData);
@@ -72,7 +98,11 @@ public class StageManager : MonoBehaviour
 
     void Update()
     {
-        if (!isRunning || cleared || failed) return;
+        if (!isRunning) return;
+
+        UpdateEffectMessageTimer();
+
+        if (isPaused || cleared || failed) return;
 
         elapsedTime += Time.deltaTime;
         remainingTime -= Time.deltaTime;
@@ -89,7 +119,7 @@ public class StageManager : MonoBehaviour
 
     void LateUpdate()
     {
-        if (!isRunning || cleared || failed) return;
+        if (!isRunning || isPaused || cleared || failed) return;
 
         view.UpdateVisuals(board);
         CheckChestOpen();
@@ -103,6 +133,32 @@ public class StageManager : MonoBehaviour
             ShowResult(true);
         }
     }
+
+    // ---- ポーズ処理 ----
+
+    private void PauseStage()
+    {
+        if (!isRunning || cleared || failed) return;
+
+        isPaused = true;
+        view.PlayerController.enabled = false;
+        pausePanel.SetActive(true);
+    }
+
+    private void ResumeStage()
+    {
+        isPaused = false;
+        view.PlayerController.enabled = true;
+        pausePanel.SetActive(false);
+    }
+
+    private void RequestBackToSelect()
+    {
+        pausePanel.SetActive(false);
+        OnBackToSelect?.Invoke();
+    }
+
+    // ---- アイテム効果 ----
 
     private void CheckChestOpen()
     {
@@ -130,18 +186,22 @@ public class StageManager : MonoBehaviour
         {
             case ItemEffectType.WallBreak:
                 board.ActivateWallBreak();
+                ShowEffectMessage("Wall Break! Head into a wall");
                 break;
 
             case ItemEffectType.TimeExtend:
                 remainingTime += 15f;
+                ShowEffectMessage("Time +15s!");
                 break;
 
             case ItemEffectType.SpeedUp:
                 view.PlayerController.ApplySpeedEffect(2f, 5f);
+                ShowEffectMessage("Speed Up!");
                 break;
 
             case ItemEffectType.SpeedDown:
                 view.PlayerController.ApplySpeedEffect(0.5f, 5f);
+                ShowEffectMessage("Speed Down...");
                 break;
 
             case ItemEffectType.AddWall:
@@ -151,21 +211,54 @@ public class StageManager : MonoBehaviour
                 {
                     view.AddWallVisual(added.Value);
                 }
+                ShowEffectMessage("A wall appeared!");
                 break;
         }
     }
 
+    private void ShowEffectMessage(string message)
+    {
+        effectMessageText.text = message;
+        effectMessageText.gameObject.SetActive(true);
+        effectMessageTimer = effectMessageDuration;
+    }
+
+    private void UpdateEffectMessageTimer()
+    {
+        if (effectMessageTimer <= 0f) return;
+
+        effectMessageTimer -= Time.deltaTime;
+        if (effectMessageTimer <= 0f)
+        {
+            effectMessageText.gameObject.SetActive(false);
+        }
+    }
+
+    // ---- 結果画面 ----
+
     private void ShowResult(bool isCleared)
     {
         resultPanel.SetActive(true);
+        pauseButton.gameObject.SetActive(false); // 結果画面ではPauseボタンを隠す
 
-        resultText.text = isCleared
-            ? $"CLEAR!\nTime: {elapsedTime:F2}s"
-            : "Time's up...";
+        if (isCleared)
+        {
+            resultText.text = isLastStage
+                ? $"ALL CLEAR!\nTime: {elapsedTime:F2}s"
+                : $"CLEAR!\nTime: {elapsedTime:F2}s";
+
+            nextStageButton.gameObject.SetActive(!isLastStage);
+        }
+        else
+        {
+            resultText.text = "Time's up...";
+            nextStageButton.gameObject.SetActive(false);
+        }
     }
 
     private void RetryStage()
     {
+        pausePanel.SetActive(false);
         StartStage();
     }
 
