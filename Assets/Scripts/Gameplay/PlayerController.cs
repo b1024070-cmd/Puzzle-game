@@ -3,12 +3,12 @@ using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour
 {
-    private const float BaseMoveInterval = 0.15f; // 通常時、1マス動くのにかかる時間
+    private const float BaseMoveInterval = 0.15f;
 
     private PuzzleBoard board;
     private float moveTimer;
     private float speedMultiplier = 1f;
-    private float speedBoostRemaining;
+    private float speedEffectRemaining;
 
     public void Initialize(PuzzleBoard board)
     {
@@ -19,17 +19,16 @@ public class PlayerController : MonoBehaviour
     {
         if (Keyboard.current == null || board == null) return;
 
-        UpdateSpeedBoost();
+        UpdateSpeedEffect();
 
         Vector2Int direction = GetHeldDirection();
 
         if (direction == Vector2Int.zero)
         {
-            moveTimer = 0f; // キーが離されたらタイマーをリセット
+            moveTimer = 0f;
             return;
         }
 
-        // 押した瞬間は即座に1回動く
         bool justPressed = WasAnyDirectionPressedThisFrame();
         if (justPressed)
         {
@@ -38,7 +37,6 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        // 押しっぱなしの間は、間隔ごとに連続移動する
         moveTimer += Time.deltaTime;
         float currentInterval = BaseMoveInterval / speedMultiplier;
 
@@ -49,21 +47,21 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    // 一定時間だけ移動速度を上げる(スピードアップ効果用)
-    public void ApplySpeedBoost(float multiplier, float duration)
+    // 一定時間だけ移動速度を変更する(1より大きいと速く、小さいと遅くなる)
+    public void ApplySpeedEffect(float multiplier, float duration)
     {
         speedMultiplier = multiplier;
-        speedBoostRemaining = duration;
+        speedEffectRemaining = duration;
     }
 
-    private void UpdateSpeedBoost()
+    private void UpdateSpeedEffect()
     {
-        if (speedBoostRemaining <= 0f) return;
+        if (speedEffectRemaining <= 0f) return;
 
-        speedBoostRemaining -= Time.deltaTime;
-        if (speedBoostRemaining <= 0f)
+        speedEffectRemaining -= Time.deltaTime;
+        if (speedEffectRemaining <= 0f)
         {
-            speedBoostRemaining = 0f;
+            speedEffectRemaining = 0f;
             speedMultiplier = 1f;
         }
     }

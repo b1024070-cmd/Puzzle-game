@@ -106,8 +106,18 @@ public class PuzzleView : MonoBehaviour
         }
     }
 
-    // 壁が壊れた時、見た目を壁 → 床に差し替える
     public void BreakWallVisual(Vector2Int pos)
+    {
+        ReplaceTileVisual(pos, floorPrefab);
+    }
+
+    // 壁が追加された時、見た目を床 → 壁に差し替える
+    public void AddWallVisual(Vector2Int pos)
+    {
+        ReplaceTileVisual(pos, wallPrefab);
+    }
+
+    private void ReplaceTileVisual(Vector2Int pos, GameObject newPrefab)
     {
         if (tileObjects.TryGetValue(pos, out GameObject oldTile))
         {
@@ -115,8 +125,8 @@ public class PuzzleView : MonoBehaviour
         }
 
         Vector3 worldPos = new Vector3(pos.x, -pos.y, 0);
-        GameObject newFloor = Instantiate(floorPrefab, worldPos, Quaternion.identity, transform);
-        tileObjects[pos] = newFloor;
+        GameObject newTile = Instantiate(newPrefab, worldPos, Quaternion.identity, transform);
+        tileObjects[pos] = newTile;
     }
 
     private Vector3 GridToWorld(Vector2Int gridPos)

@@ -13,6 +13,7 @@ public class PuzzleBoard
 
     private bool wallBreakPending;
     private Vector2Int? lastWallBroken;
+    private Vector2Int? lastWallAdded;
 
     public PuzzleBoard(int width, int height)
     {
@@ -50,7 +51,6 @@ public class PuzzleBoard
 
         if (tiles[nextPos.x, nextPos.y] == TileType.Wall)
         {
-            // 壁破壊モードが有効なら、進む代わりに壁を壊す
             if (wallBreakPending)
             {
                 tiles[nextPos.x, nextPos.y] = TileType.Floor;
@@ -100,7 +100,6 @@ public class PuzzleBoard
         return chestPositions.Remove(pos);
     }
 
-    // 壁破壊モードを有効にする(次に壁へ向かった時に発動)
     public void ActivateWallBreak()
     {
         wallBreakPending = true;
@@ -108,11 +107,44 @@ public class PuzzleBoard
 
     public bool IsWallBreakPending => wallBreakPending;
 
-    // 直近で壊された壁の座標を取得し、内部の記録は消費する(1回だけ通知するため)
     public Vector2Int? ConsumeLastWallBroken()
     {
         Vector2Int? result = lastWallBroken;
         lastWallBroken = null;
+        return result;
+    }
+
+    // ランダムな床マスを1つ壁に変える(妨害効果: 壁追加)
+    public void AddRandomWall()
+    {
+        List<Vector2Int> candidates = new List<Vector2Int>();
+
+        for (int y = 0; y < Height; y++)
+        {
+            for (int x = 0; x < Width; x++)
+            {
+                Vector2Int pos = new Vector2Int(x, y);
+
+                if (tiles[x, y] != TileType.Floor) continue; // 床マス以外は対象外
+                if (pos == playerPosition) continue;
+                if (blockPositions.Contains(pos)) continue;
+                if (chestPositions.Contains(pos)) continue;
+
+                candidates.Add(pos);
+            }
+        }
+
+        if (candidates.Count == 0) return; // 置ける場所がない場合は何もしない
+
+        Vector2Int chosen = candidates[Random.Range(0, candidates.Count)];
+        tiles[chosen.x, chosen.y] = TileType.Wall;
+        lastWallAdded = chosen;
+    }
+
+    public Vector2Int? ConsumeLastWallAdded()
+    {
+        Vector2Int? result = lastWallAdded;
+        lastWallAdded = null;
         return result;
     }
 }

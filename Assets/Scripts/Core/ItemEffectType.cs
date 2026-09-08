@@ -1,8 +1,8 @@
-using UnityEngine;
-
 public enum ItemEffectType
 {
     WallBreak,
     TimeExtend,
-    SpeedUp
+    SpeedUp,
+    SpeedDown,
+    AddWall
 }

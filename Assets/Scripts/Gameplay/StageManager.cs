@@ -79,7 +79,7 @@ public class StageManager : MonoBehaviour
         {
             view.RemoveChestVisual(board.PlayerPosition);
 
-            ItemEffectType effect = ItemEffectPicker.PickGoodEffect();
+            ItemEffectType effect = ItemEffectPicker.PickEffect();
             ApplyEffect(effect);
         }
     }
@@ -100,15 +100,32 @@ public class StageManager : MonoBehaviour
         {
             case ItemEffectType.WallBreak:
                 board.ActivateWallBreak();
-                Debug.Log("効果: 壁破壊モード発動 - 次に壁へ向かうと壊せます");
+                Debug.Log("効果: 壁破壊モード発動");
                 break;
+
             case ItemEffectType.TimeExtend:
                 remainingTime += 15f;
                 Debug.Log("効果: 時間延長 +15秒");
                 break;
+
             case ItemEffectType.SpeedUp:
-                view.PlayerController.ApplySpeedBoost(2f, 5f);
+                view.PlayerController.ApplySpeedEffect(2f, 5f);
                 Debug.Log("効果: スピードアップ(2倍速・5秒間)");
+                break;
+
+            case ItemEffectType.SpeedDown:
+                view.PlayerController.ApplySpeedEffect(0.5f, 5f);
+                Debug.Log("効果: スピードダウン(0.5倍速・5秒間)");
+                break;
+
+            case ItemEffectType.AddWall:
+                board.AddRandomWall();
+                Vector2Int? added = board.ConsumeLastWallAdded();
+                if (added.HasValue)
+                {
+                    view.AddWallVisual(added.Value);
+                }
+                Debug.Log("効果: 壁が追加されました");
                 break;
         }
     }
